@@ -1,13 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import {
-  isSupabaseConfigured,
-  signInWithIdentifier,
-  signUpWithIdentifier,
-} from "@/lib/supabase";
+import { signInWithIdentifier, signUpWithIdentifier } from "@/lib/supabase";
 import { UserSession } from "@/types/bacteria";
-import { Microscope, ArrowRight, Sparkles, Lock, User } from "lucide-react";
+import { Microscope, ArrowRight, Lock, User } from "lucide-react";
 
 interface AuthScreenProps {
   onAuthenticated: (session: UserSession) => void;
@@ -40,26 +36,6 @@ export default function AuthScreen({ onAuthenticated }: AuthScreenProps) {
         setError(res.error);
       } else if (res.session) {
         onAuthenticated(res.session);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleQuickDemo = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const loginTry = await signInWithIdentifier("student_demo", "medicina123");
-      if (loginTry.session) {
-        onAuthenticated(loginTry.session);
-        return;
-      }
-      const signupTry = await signUpWithIdentifier("student_demo", "medicina123");
-      if (signupTry.session) {
-        onAuthenticated(signupTry.session);
-      } else if (signupTry.error) {
-        setError(signupTry.error);
       }
     } finally {
       setLoading(false);
@@ -182,25 +158,6 @@ export default function AuthScreen({ onAuthenticated }: AuthScreenProps) {
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
-
-        {/* Acces instant cu 1 tap pentru testare rapidă pe tabletă */}
-        <div className="mt-5 pt-5 border-t border-slate-100 flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={handleQuickDemo}
-            disabled={loading}
-            className="w-full py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-violet-600" />
-            <span>Intră instant în Contul Demo (cu arbori exemplu)</span>
-          </button>
-
-          <p className="text-[11px] text-center text-slate-400">
-            {isSupabaseConfigured
-              ? "Conectat la Supabase Cloud • Salvare automată activă"
-              : "Mod Local Activ • Adaugă cheile Supabase în .env.local pentru Cloud"}
-          </p>
-        </div>
       </div>
     </div>
   );
