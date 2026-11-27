@@ -86,6 +86,23 @@ function BacteriaCanvasInner({ session, onLogout }: BacteriaCanvasInnerProps) {
     setEdges((eds) => eds.filter((e) => e.id !== edgeId));
   }, []);
 
+  const handleChangeEdgeColor = useCallback(
+    (edgeId: string, strokeColor: string) => {
+      setEdges((eds) =>
+        eds.map((e) =>
+          e.id === edgeId
+            ? {
+                ...e,
+                style: { ...e.style, stroke: strokeColor },
+                data: { ...e.data, color: strokeColor },
+              }
+            : e
+        )
+      );
+    },
+    []
+  );
+
   // Când apeși pe săgeata în jos (⌄) de pe un dreptunghi:
   // Deschide informațiile direct pe pânză și împinge automat în jos nodurile și ramurile de sub el!
   const handleToggleExpand = useCallback((nodeId: string) => {
@@ -152,7 +169,11 @@ function BacteriaCanvasInner({ session, onLogout }: BacteriaCanvasInnerProps) {
             target: newNodeId,
             type: "smartBezier",
             style: { stroke: palette.edgeStroke },
-            data: { onDeleteEdge: handleDeleteEdge },
+            data: {
+              color: palette.edgeStroke,
+              onDeleteEdge: handleDeleteEdge,
+              onChangeEdgeColor: handleChangeEdgeColor,
+            },
           },
         ]);
 
@@ -169,7 +190,12 @@ function BacteriaCanvasInner({ session, onLogout }: BacteriaCanvasInnerProps) {
         return updated;
       });
     },
-    [handleOpenModal, handleDeleteEdge, handleToggleExpand]
+    [
+      handleOpenModal,
+      handleDeleteEdge,
+      handleChangeEdgeColor,
+      handleToggleExpand,
+    ]
   );
 
   // Atașăm callback-urile pe fiecare nod
@@ -213,13 +239,18 @@ function BacteriaCanvasInner({ session, onLogout }: BacteriaCanvasInnerProps) {
         const palette =
           BACTERIA_COLORS[sourceRecord?.color_key || "violet"] ||
           BACTERIA_COLORS.violet;
+        const savedColor = e.color || palette.edgeStroke;
         return {
           id: e.id,
           source: e.source_id,
           target: e.target_id,
           type: "smartBezier",
-          style: { stroke: palette.edgeStroke },
-          data: { onDeleteEdge: handleDeleteEdge },
+          style: { stroke: savedColor },
+          data: {
+            color: savedColor,
+            onDeleteEdge: handleDeleteEdge,
+            onChangeEdgeColor: handleChangeEdgeColor,
+          },
         };
       });
 
@@ -241,6 +272,7 @@ function BacteriaCanvasInner({ session, onLogout }: BacteriaCanvasInnerProps) {
     handleAddChildNode,
     handleToggleExpand,
     handleDeleteEdge,
+    handleChangeEdgeColor,
     hydrateNodeCallbacks,
     fitView,
   ]);
@@ -273,6 +305,10 @@ function BacteriaCanvasInner({ session, onLogout }: BacteriaCanvasInnerProps) {
         user_id: session.id,
         source_id: e.source,
         target_id: e.target,
+        color:
+          (e.data as { color?: string } | undefined)?.color ||
+          (e.style?.stroke as string) ||
+          "#8b5cf6",
       }));
 
       await saveUserGraph(session.id, nodeRecords, edgeRecords);
@@ -337,12 +373,16 @@ function BacteriaCanvasInner({ session, onLogout }: BacteriaCanvasInnerProps) {
             target: connection.target,
             type: "smartBezier",
             style: { stroke: "#8b5cf6" },
-            data: { onDeleteEdge: handleDeleteEdge },
+            data: {
+              color: "#8b5cf6",
+              onDeleteEdge: handleDeleteEdge,
+              onChangeEdgeColor: handleChangeEdgeColor,
+            },
           },
         ];
       });
     },
-    [handleDeleteEdge]
+    [handleDeleteEdge, handleChangeEdgeColor]
   );
 
   // Adaugă o Rădăcină Nouă (pentru un arbore nou pe aceeași pânză infinită)

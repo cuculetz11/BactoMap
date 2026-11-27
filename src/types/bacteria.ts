@@ -28,6 +28,7 @@ export interface BacteriaEdgeRecord {
   user_id: string;
   source_id: string;
   target_id: string;
+  color?: string;
 }
 
 export interface BacteriaNodeData extends Record<string, unknown> {

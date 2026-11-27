@@ -187,6 +187,8 @@ export function createStarterTemplate(userId: string): {
 const LOCAL_USERS_KEY = "bactomap_local_users_v1";
 const LOCAL_SESSION_KEY = "bactomap_local_session_v1";
 const getLocalGraphKey = (userId: string) => `bactomap_graph_${userId}`;
+const getLocalEdgeColorsKey = (userId: string) =>
+  `bactomap_edge_colors_${userId}`;
 
 interface LocalUserAccount {
   id: string;
@@ -366,9 +368,25 @@ export async function loadUserGraph(userId: string): Promise<{
     ]);
 
     if (!nodesRes.error && nodesRes.data && nodesRes.data.length > 0) {
+      let colorMap: Record<string, string> = {};
+      if (typeof window !== "undefined") {
+        try {
+          colorMap = JSON.parse(
+            localStorage.getItem(getLocalEdgeColorsKey(userId)) || "{}"
+          );
+        } catch {
+          colorMap = {};
+        }
+      }
+      const hydratedEdges = ((edgesRes.data || []) as BacteriaEdgeRecord[]).map(
+        (e) => ({
+          ...e,
+          color: e.color || colorMap[e.id],
+        })
+      );
       return {
         nodes: nodesRes.data as BacteriaNodeRecord[],
-        edges: (edgesRes.data || []) as BacteriaEdgeRecord[],
+        edges: hydratedEdges,
       };
     }
 
@@ -404,6 +422,14 @@ export async function saveUserGraph(
     localStorage.setItem(
       getLocalGraphKey(userId),
       JSON.stringify({ nodes, edges })
+    );
+    const edgeColors: Record<string, string> = {};
+    for (const e of edges) {
+      if (e.color) edgeColors[e.id] = e.color;
+    }
+    localStorage.setItem(
+      getLocalEdgeColorsKey(userId),
+      JSON.stringify(edgeColors)
     );
   }
 

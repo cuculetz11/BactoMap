@@ -9,7 +9,14 @@ import {
   useInternalNode,
 } from "@xyflow/react";
 import { getNodeDimensions, getSmartEdgeParams } from "@/lib/collision";
+import { COLOR_LIST } from "@/lib/colors";
 import { X } from "lucide-react";
+
+interface SmartEdgeData {
+  color?: string;
+  onDeleteEdge?: (id: string) => void;
+  onChangeEdgeColor?: (id: string, strokeColor: string) => void;
+}
 
 export default function SmartBezierEdge({
   id,
@@ -53,22 +60,33 @@ export default function SmartBezierEdge({
     curvature: 0.28,
   });
 
-  const onDeleteEdge = (
-    data as { onDeleteEdge?: (id: string) => void } | undefined
-  )?.onDeleteEdge;
+  const edgeData = data as SmartEdgeData | undefined;
+  const currentStroke =
+    edgeData?.color || (style?.stroke as string) || "#94a3b8";
 
   return (
     <>
+      {/* Zonă invizibilă mai groasă (24px) ca să poți da click/tap super ușor pe linie și pe tabletă */}
+      <path
+        d={edgePath}
+        fill="none"
+        stroke="transparent"
+        strokeWidth={24}
+        className="react-flow__edge-interaction cursor-pointer"
+      />
       <BaseEdge
         id={id}
         path={edgePath}
         style={{
-          strokeWidth: selected ? 3 : 2.3,
-          stroke: selected ? "#7c3aed" : (style?.stroke as string) || "#94a3b8",
-          transition: "stroke 150ms ease",
+          strokeWidth: selected ? 3.6 : 2.5,
+          stroke: currentStroke,
+          filter: selected
+            ? "drop-shadow(0 0 4px rgba(124, 58, 237, 0.35))"
+            : undefined,
+          transition: "stroke 150ms ease, stroke-width 150ms ease",
         }}
       />
-      {selected && onDeleteEdge && (
+      {selected && (
         <EdgeLabelRenderer>
           <div
             style={{
@@ -76,19 +94,48 @@ export default function SmartBezierEdge({
               transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
               pointerEvents: "all",
             }}
-            className="nodrag nopan"
+            onClick={(e) => e.stopPropagation()}
+            className="nodrag nopan z-30 flex items-center gap-1.5 bg-white/95 backdrop-blur-md px-2.5 py-1.5 rounded-full shadow-lg border border-slate-200"
           >
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDeleteEdge(id);
-              }}
-              title="Șterge această ramură"
-              className="w-6 h-6 rounded-full bg-rose-500 hover:bg-rose-600 text-white shadow-md flex items-center justify-center border-2 border-white transition-transform active:scale-90"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
+            {/* Bulinele pentru alegerea culorii liniei */}
+            {COLOR_LIST.map((c) => {
+              const isCurrent =
+                currentStroke.toLowerCase() === c.border.toLowerCase() ||
+                currentStroke.toLowerCase() === c.edgeStroke.toLowerCase();
+              return (
+                <button
+                  key={c.key}
+                  type="button"
+                  title={`Culoare linie: ${c.label}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    edgeData?.onChangeEdgeColor?.(id, c.border);
+                  }}
+                  style={{ backgroundColor: c.border }}
+                  className={`w-5 h-5 rounded-full border-2 border-white shadow-sm transition-transform hover:scale-110 active:scale-95 ${
+                    isCurrent ? "ring-2 ring-slate-900 scale-110" : ""
+                  }`}
+                />
+              );
+            })}
+
+            {/* Separator discret */}
+            <div className="w-px h-4 bg-slate-200 mx-0.5" />
+
+            {/* Buton ștergere linie */}
+            {edgeData?.onDeleteEdge && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  edgeData.onDeleteEdge?.(id);
+                }}
+                title="Șterge această linie"
+                className="w-5 h-5 rounded-full bg-rose-500 hover:bg-rose-600 text-white shadow-sm flex items-center justify-center transition-transform hover:scale-110 active:scale-90"
+              >
+                <X className="w-3 h-3 stroke-[2.5]" />
+              </button>
+            )}
           </div>
         </EdgeLabelRenderer>
       )}
