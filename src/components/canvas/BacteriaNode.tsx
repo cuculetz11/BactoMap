@@ -233,20 +233,6 @@ function BacteriaNodeComponent({ id, data, selected }: NodeProps) {
               </div>
             ))
           )}
-
-          {/* Buton rapid în baza cardului deschis ca să modifici subsecțiunile */}
-          <button
-            type="button"
-            onClick={() => nodeData.onOpenModal(id)}
-            style={{
-              backgroundColor: palette.badgeBg,
-              color: palette.badgeText,
-            }}
-            className="w-full py-1.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 hover:opacity-90 transition"
-          >
-            <Pencil className="w-3 h-3" />
-            <span>Modifică / Adaugă subsecțiuni</span>
-          </button>
         </div>
       )}
 
