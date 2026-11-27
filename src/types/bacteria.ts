@@ -34,8 +34,10 @@ export interface BacteriaNodeData extends Record<string, unknown> {
   title: string;
   colorKey: ColorKey;
   subsections: Subsection[];
+  expanded?: boolean;
   onOpenModal: (nodeId: string) => void;
   onAddChild: (parentNodeId: string) => void;
+  onToggleExpand: (nodeId: string) => void;
 }
 
 export interface UserSession {

@@ -8,7 +8,7 @@ import {
   getBezierPath,
   useInternalNode,
 } from "@xyflow/react";
-import { getSmartEdgeParams, NODE_HEIGHT, NODE_WIDTH } from "@/lib/collision";
+import { getNodeDimensions, getSmartEdgeParams } from "@/lib/collision";
 import { X } from "lucide-react";
 
 export default function SmartBezierEdge({
@@ -26,10 +26,13 @@ export default function SmartBezierEdge({
     return null;
   }
 
-  const sWidth = sourceNode.measured?.width || NODE_WIDTH;
-  const sHeight = sourceNode.measured?.height || NODE_HEIGHT;
-  const tWidth = targetNode.measured?.width || NODE_WIDTH;
-  const tHeight = targetNode.measured?.height || NODE_HEIGHT;
+  const sFallback = getNodeDimensions(sourceNode);
+  const tFallback = getNodeDimensions(targetNode);
+
+  const sWidth = sourceNode.measured?.width || sFallback.width;
+  const sHeight = sourceNode.measured?.height || sFallback.height;
+  const tWidth = targetNode.measured?.width || tFallback.width;
+  const tHeight = targetNode.measured?.height || tFallback.height;
 
   const { sx, sy, tx, ty, sourcePos, targetPos } = getSmartEdgeParams(
     sourceNode.internals.positionAbsolute,
@@ -50,8 +53,9 @@ export default function SmartBezierEdge({
     curvature: 0.28,
   });
 
-  const onDeleteEdge = (data as { onDeleteEdge?: (id: string) => void } | undefined)
-    ?.onDeleteEdge;
+  const onDeleteEdge = (
+    data as { onDeleteEdge?: (id: string) => void } | undefined
+  )?.onDeleteEdge;
 
   return (
     <>
@@ -59,7 +63,7 @@ export default function SmartBezierEdge({
         id={id}
         path={edgePath}
         style={{
-          strokeWidth: selected ? 3 : 2.2,
+          strokeWidth: selected ? 3 : 2.3,
           stroke: selected ? "#7c3aed" : (style?.stroke as string) || "#94a3b8",
           transition: "stroke 150ms ease",
         }}

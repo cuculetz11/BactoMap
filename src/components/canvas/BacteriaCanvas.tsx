@@ -31,6 +31,7 @@ import FloatingToolbar from "@/components/canvas/FloatingToolbar";
 import BacteriaModal from "@/components/modal/BacteriaModal";
 import { BACTERIA_COLORS } from "@/lib/colors";
 import {
+  applyDynamicExpandShift,
   findFreeChildPosition,
   NODE_HEIGHT,
   NODE_WIDTH,
@@ -71,6 +72,11 @@ function BacteriaCanvasInner({ session, onLogout }: BacteriaCanvasInnerProps) {
   const [initialLoaded, setInitialLoaded] = useState(false);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const edgesRef = useRef<Edge[]>([]);
+  edgesRef.current = edges;
+
+  // Memorează cu câți pixeli a împins în jos fiecare nod când a fost deschis cu săgeata
+  const expandDeltaMapRef = useRef<Record<string, number>>({});
 
   const handleOpenModal = useCallback((nodeId: string) => {
     setActiveModalNodeId(nodeId);
@@ -78,6 +84,29 @@ function BacteriaCanvasInner({ session, onLogout }: BacteriaCanvasInnerProps) {
 
   const handleDeleteEdge = useCallback((edgeId: string) => {
     setEdges((eds) => eds.filter((e) => e.id !== edgeId));
+  }, []);
+
+  // Când apeși pe săgeata în jos (⌄) de pe un dreptunghi:
+  // Deschide informațiile direct pe pânză și împinge automat în jos nodurile și ramurile de sub el!
+  const handleToggleExpand = useCallback((nodeId: string) => {
+    setNodes((currentNodes) => {
+      const target = currentNodes.find((n) => n.id === nodeId);
+      if (!target) return currentNodes;
+
+      const currentData = target.data as unknown as BacteriaNodeData;
+      const nextExpanded = !Boolean(currentData.expanded);
+
+      const { nodes: shiftedNodes, updatedDeltaMap } = applyDynamicExpandShift(
+        currentNodes,
+        edgesRef.current,
+        nodeId,
+        nextExpanded,
+        expandDeltaMapRef.current
+      );
+
+      expandDeltaMapRef.current = updatedDeltaMap;
+      return shiftedNodes;
+    });
   }, []);
 
   // Adaugă o ramură nouă (dreptunghi copil) legată de părinte, într-un loc liber fără suprapuneri
@@ -105,8 +134,10 @@ function BacteriaCanvasInner({ session, onLogout }: BacteriaCanvasInnerProps) {
                 content: "",
               },
             ],
+            expanded: false,
             onOpenModal: handleOpenModal,
             onAddChild: () => {},
+            onToggleExpand: handleToggleExpand,
           } satisfies BacteriaNodeData,
         };
 
@@ -130,7 +161,7 @@ function BacteriaCanvasInner({ session, onLogout }: BacteriaCanvasInnerProps) {
           newNodeId
         );
 
-        // Deschidem direct pop-up-ul pentru noul nod ca să-i poți scrie numele
+        // Deschidem direct pop-up-ul pentru noul nod ca să-i poți scrie numele și subsecțiunile
         setTimeout(() => {
           setActiveModalNodeId(newNodeId);
         }, 120);
@@ -138,7 +169,7 @@ function BacteriaCanvasInner({ session, onLogout }: BacteriaCanvasInnerProps) {
         return updated;
       });
     },
-    [handleOpenModal, handleDeleteEdge]
+    [handleOpenModal, handleDeleteEdge, handleToggleExpand]
   );
 
   // Atașăm callback-urile pe fiecare nod
@@ -150,9 +181,10 @@ function BacteriaCanvasInner({ session, onLogout }: BacteriaCanvasInnerProps) {
           ...n.data,
           onOpenModal: handleOpenModal,
           onAddChild: handleAddChildNode,
+          onToggleExpand: handleToggleExpand,
         },
       })),
-    [handleOpenModal, handleAddChildNode]
+    [handleOpenModal, handleAddChildNode, handleToggleExpand]
   );
 
   // Încărcarea inițială a schemei studentului
@@ -169,8 +201,10 @@ function BacteriaCanvasInner({ session, onLogout }: BacteriaCanvasInnerProps) {
           title: n.title,
           colorKey: n.color_key || "violet",
           subsections: Array.isArray(n.subsections) ? n.subsections : [],
+          expanded: false,
           onOpenModal: handleOpenModal,
           onAddChild: handleAddChildNode,
+          onToggleExpand: handleToggleExpand,
         } satisfies BacteriaNodeData,
       }));
 
@@ -189,7 +223,7 @@ function BacteriaCanvasInner({ session, onLogout }: BacteriaCanvasInnerProps) {
         };
       });
 
-      setNodes(resolveNodeCollisions(rfNodes));
+      setNodes(hydrateNodeCallbacks(resolveNodeCollisions(rfNodes)));
       setEdges(rfEdges);
       setInitialLoaded(true);
 
@@ -205,7 +239,9 @@ function BacteriaCanvasInner({ session, onLogout }: BacteriaCanvasInnerProps) {
     session.id,
     handleOpenModal,
     handleAddChildNode,
+    handleToggleExpand,
     handleDeleteEdge,
+    hydrateNodeCallbacks,
     fitView,
   ]);
 
@@ -260,8 +296,12 @@ function BacteriaCanvasInner({ session, onLogout }: BacteriaCanvasInnerProps) {
   }, []);
 
   // Când utilizatorul termină de mutat un dreptunghi, rezolvăm finuț orice suprapunere
+  // ținând cont și de nodurile care sunt deschise (expandate în jos)
   const onNodeDragStop = useCallback(
-    (_event: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent, draggedNode: Node) => {
+    (
+      _event: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent,
+      draggedNode: Node
+    ) => {
       setNodes((nds) =>
         hydrateNodeCallbacks(resolveNodeCollisions(nds, draggedNode.id))
       );
@@ -327,8 +367,10 @@ function BacteriaCanvasInner({ session, onLogout }: BacteriaCanvasInnerProps) {
             content: "",
           },
         ],
+        expanded: false,
         onOpenModal: handleOpenModal,
         onAddChild: handleAddChildNode,
+        onToggleExpand: handleToggleExpand,
       } satisfies BacteriaNodeData,
     };
 
@@ -340,6 +382,7 @@ function BacteriaCanvasInner({ session, onLogout }: BacteriaCanvasInnerProps) {
     screenToFlowPosition,
     handleOpenModal,
     handleAddChildNode,
+    handleToggleExpand,
     hydrateNodeCallbacks,
   ]);
 
@@ -375,13 +418,14 @@ function BacteriaCanvasInner({ session, onLogout }: BacteriaCanvasInnerProps) {
 
   const handleChangeSubsections = useCallback(
     (nodeId: string, newSubsections: Subsection[]) => {
-      setNodes((nds) =>
-        nds.map((n) =>
+      setNodes((nds) => {
+        const updated = nds.map((n) =>
           n.id === nodeId
             ? { ...n, data: { ...n.data, subsections: newSubsections } }
             : n
-        )
-      );
+        );
+        return resolveNodeCollisions(updated, nodeId);
+      });
     },
     []
   );
@@ -474,7 +518,7 @@ function BacteriaCanvasInner({ session, onLogout }: BacteriaCanvasInnerProps) {
         />
       </ReactFlow>
 
-      {/* Pop-up-ul cu Subsecțiuni Custom când dai click/tap pe un dreptunghi */}
+      {/* Pop-up-ul pentru editarea/vizualizarea detaliată când apeși pe creion / Modifică */}
       {activeModalNode && (
         <BacteriaModal
           nodeId={activeModalNode.id}
